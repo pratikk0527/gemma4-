@@ -46,8 +46,11 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
         # Add your production domain here
     ],
     allow_credentials=True,
@@ -60,8 +63,8 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 MODEL_NAME = os.getenv("MODEL_NAME", "gemma4:e4b")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "1200"))
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.3"))
-IMAGE_MAX_SIZE = int(os.getenv("IMAGE_MAX_SIZE", "4000"))
-TIMEOUT_SECONDS = int(os.getenv("TIMEOUT_SECONDS", "120"))
+IMAGE_MAX_SIZE = int(os.getenv("IMAGE_MAX_SIZE", "800"))   # smaller = faster inference
+TIMEOUT_SECONDS = int(os.getenv("TIMEOUT_SECONDS", "300"))  # 5 min for local Gemma 4
 
 # Analysis cache directory (optional)
 CACHE_DIR = Path("./analysis_cache")
