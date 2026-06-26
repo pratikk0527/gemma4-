@@ -1,0 +1,59 @@
+# KisanLens Backend Requirements
+# Google Gemma 4 12B Quantized Model + FastAPI Backend
+
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Image Processing
+pillow==10.1.0
+python-magic==0.4.27
+
+# HTTP & Requests
+requests==2.31.0
+httpx==0.25.0
+
+# Environment & Config
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Data Processing
+numpy==1.24.3
+python-json-logger==2.0.7
+
+# Optional: Monitoring & Logging
+prometheus-client==0.18.0
+
+# Optional: Performance
+gunicorn==21.2.0
+gevent==23.9.1
+
+# Optional: Rate Limiting
+slowapi==0.1.9
+
+# Optional: Database (if adding persistence)
+# sqlalchemy==2.0.23
+# databases==0.8.0
+# postgresql==1.0.4
+
+# Optional: Authentication
+# python-jose==3.3.0
+# passlib==1.7.4
+# python-multipart==0.0.6
+
+# Optional: CORS headers (if not using middleware)
+# python-cors==3.0.10
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.12.0
+flake8==6.1.0
+
+# Optional: Production Server
+gunicorn==21.2.0
+
+# Optional: Async performance
+orjson==3.9.10

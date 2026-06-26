@@ -1,0 +1,22 @@
+# ── Python ──
+files/.venv/
+files/__pycache__/
+files/*.pyc
+files/analysis_cache/
+*.egg-info/
+.env
+.env.local
+
+# ── Node / Vite ──
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
