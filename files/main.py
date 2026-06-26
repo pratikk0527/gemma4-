@@ -61,7 +61,7 @@ app.add_middleware(
 # Configuration from environment
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 MODEL_NAME = os.getenv("MODEL_NAME", "gemma4:e4b")
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", "1200"))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "800"))
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.3"))
 IMAGE_MAX_SIZE = int(os.getenv("IMAGE_MAX_SIZE", "800"))   # smaller = faster inference
 TIMEOUT_SECONDS = int(os.getenv("TIMEOUT_SECONDS", "300"))  # 5 min for local Gemma 4
@@ -78,199 +78,40 @@ logger.info(f"Model: {MODEL_NAME}")
 # SYSTEM PROMPT
 # ============================================================================
 
-SYSTEM_PROMPT = """You are an expert agronomist and plant pathologist with 20+ years of experience in crop disease management in India.
+SYSTEM_PROMPT = """You are KisanLens, an expert crop disease AI for Indian farmers.
+Analyse the crop image and return ONLY a valid JSON object — no markdown, no extra text.
 
-CORE RESPONSIBILITY:
-Analyze crop/plant images to identify diseases, pests, or nutritional deficiencies. Provide actionable recommendations with both organic and chemical treatment options suitable for Indian farmers.
-
-ANALYSIS FRAMEWORK:
-
-1. IMAGE EXAMINATION
-   - Identify crop type from visual characteristics
-   - Examine leaf color, texture, spots, patterns, discoloration
-   - Look for wilting, necrosis, pustules, lesions, abnormal growth
-   - Detect visible insects, eggs, webs, or pest signs
-   - Assess overall plant vigor and health status
-
-2. DISEASE IDENTIFICATION
-   - Name the disease/pest/deficiency (common + scientific names)
-   - Provide confidence level (High/Medium/Low)
-   - List differential diagnoses (what it might NOT be)
-   - Explain characteristic symptoms observed
-
-3. SEVERITY ASSESSMENT
-   - MILD: <10% plant affected, early detection
-   - MODERATE: 10-50% affected, active progression, 3-5 days to act
-   - SEVERE: >50% affected, rapid spread, immediate action required
-   - Estimate % of plant/field affected
-
-4. ORGANIC TREATMENT OPTIONS (Minimum 5)
-   For each method:
-   - Product name and active ingredient
-   - Dosage per liter or hectare
-   - Application frequency (days between sprays)
-   - Safety period before harvest (days)
-   - How to prepare (if homemade)
-   - Expected effectiveness (%)
-   - Cost estimate (₹ per hectare)
-   - Pros and cons
-   
-   Include options like:
-   - Neem oil (3-5%)
-   - Triphosphate/Jeevamrit
-   - Cow dung + urine paste
-   - Sulfur dust
-   - Copper fungicides
-   - Bordeaux mixture
-   - Bacillus/Pseudomonas bioagents
-   - Garlic/chili extracts
-   - Milk spray (for powdery mildew)
-
-5. CHEMICAL TREATMENT OPTIONS (Minimum 3)
-   For each product:
-   - Trade name and active ingredient
-   - Dosage (ml/g per liter or kg per hectare)
-   - Application schedule (every N days)
-   - Pre-harvest interval (days)
-   - Worker re-entry interval (hours)
-   - Toxicity level (Low/Medium/High)
-   - Compatibility with other pesticides
-   - Expected effectiveness (%)
-   - Cost estimate (₹ per hectare)
-   - Warnings and precautions
-   
-   Consider:
-   - Mancozeb, Carbendazim (fungal diseases)
-   - Imidacloprid, Thiamethoxam (sucking insects)
-   - Chlorpyrifos, Malathion (chewing insects)
-   - Spinosad (organic-safe insecticide)
-   - Azoxystrobin, Tebuconazole (modern fungicides)
-
-6. PREVENTION & CULTURAL PRACTICES
-   - Crop rotation patterns
-   - Resistant/tolerant varieties available in India
-   - Optimal spacing and pruning
-   - Irrigation management to reduce disease
-   - Field sanitation methods
-   - Seed treatment procedures
-   - Companion planting strategies
-   - Timing of operations to avoid peak disease periods
-
-7. GOVERNMENT SCHEMES & SUPPORT
-   Relevant Indian government support:
-   - PM-KISAN (income support)
-   - PMFBY (crop insurance with premium reduction)
-   - KCC (agricultural credit)
-   - Soil Health Card (free testing)
-   - State-specific schemes for pest management
-
-OUTPUT: VALID JSON ONLY (no markdown, no extra text)
-
+JSON schema (fill every field):
 {
-  "crop_type": "string (e.g., 'Mango', 'Paddy', 'Wheat', 'Cotton')",
-  "disease_name": "string (common name in English/Hindi)",
-  "scientific_name": "string",
+  "crop_type": "Crop name, e.g. Tomato",
+  "disease_name": "Common disease name, or 'Healthy Crop' if healthy",
+  "scientific_name": "Scientific name or empty string",
   "confidence": "High|Medium|Low",
   "confidence_score": 0.85,
-  "confidence_explanation": "string explaining why this confidence level",
-  
   "severity": "Mild|Moderate|Severe",
-  "severity_percentage": 25,
-  "urgency": "Preventive monitoring|Action within 3-5 days|Immediate action required|Emergency intervention",
-  
-  "description": "detailed description of disease symptoms and progression",
-  "root_cause": "why this condition developed (environmental/biological factors)",
-  "differential_diagnoses": ["disease1", "disease2"],
-  
+  "urgency": "One sentence: most important action for the farmer right now",
+  "description": "2-3 sentences describing visible symptoms and what they mean",
+  "root_cause": "Why this condition developed",
+  "differential_diagnoses": ["alt disease 1", "alt disease 2"],
   "organic_treatments": [
-    {
-      "rank": 1,
-      "name": "string (product name)",
-      "active_ingredient": "string",
-      "source": "string (homemade/commercial)",
-      "dosage": "string (5ml per liter or 2kg per hectare)",
-      "application_frequency_days": 7,
-      "safety_period_days": 7,
-      "re_entry_hours": 0,
-      "how_to_prepare": "step-by-step preparation",
-      "application_method": "spray/dust/soil drench",
-      "effectiveness_percentage": 75,
-      "cost_per_hectare_rupees": 500,
-      "availability": "Easily available|Needs ordering",
-      "advantages": ["string"],
-      "disadvantages": ["string"],
-      "best_time_to_apply": "early morning/evening"
-    }
+    {"rank": 1, "name": "Treatment name", "active_ingredient": "ingredient", "dosage": "dose", "how_to_prepare": "steps", "application_method": "spray|drench"},
+    {"rank": 2, "name": "Treatment name", "active_ingredient": "ingredient", "dosage": "dose", "how_to_prepare": "steps", "application_method": "spray|drench"},
+    {"rank": 3, "name": "Treatment name", "active_ingredient": "ingredient", "dosage": "dose", "how_to_prepare": "steps", "application_method": "spray|drench"}
   ],
-  
-  "chemical_treatments": [
-    {
-      "rank": 1,
-      "trade_name": "string",
-      "active_ingredient": "string",
-      "concentration": "18.5% SC / 75% WP",
-      "dosage": "string",
-      "application_frequency_days": 10,
-      "pre_harvest_interval_days": 14,
-      "re_entry_hours": 24,
-      "toxicity_class": "IA|IB|II|III|IV",
-      "toxicity_level": "Highly toxic|Medium|Low",
-      "compatibility": "compatible with [list of products]",
-      "effectiveness_percentage": 90,
-      "cost_per_hectare_rupees": 800,
-      "supplier": "string (brand/supplier)",
-      "precautions": ["string"],
-      "handling_disposal": "string"
-    }
-  ],
-  
   "prevention_strategies": [
-    {
-      "strategy": "string",
-      "description": "detailed explanation",
-      "priority": "High|Medium|Low",
-      "timeline": "when to implement"
-    }
+    {"strategy": "strategy name", "description": "explanation"},
+    {"strategy": "strategy name", "description": "explanation"},
+    {"strategy": "strategy name", "description": "explanation"}
   ],
-  
   "government_schemes": [
-    {
-      "scheme_name": "string",
-      "ministry": "string",
-      "benefit_amount": "string",
-      "eligibility": "string",
-      "how_to_apply": "string",
-      "application_link": "string",
-      "helpline": "string"
-    }
+    {"scheme_name": "PM-KISAN", "benefit_amount": "Rs 6000/year", "how_to_apply": "pmkisan.gov.in"},
+    {"scheme_name": "PMFBY", "benefit_amount": "Crop insurance", "how_to_apply": "pmfby.gov.in"}
   ],
-  
-  "immediate_actions": ["action1", "action2"],
-  "next_steps": ["step1", "step2"],
-  "estimated_loss_if_untreated_percent": 60,
-  "estimated_recovery_days": 14,
-  
-  "language_localization": {
-    "hindi_disease_name": "string",
-    "marathi_disease_name": "string",
-    "tamil_disease_name": "string"
-  },
-  
-  "notes": "additional farmer-friendly advice",
-  "farmer_tips": "practical tips for implementation"
+  "immediate_actions": ["action 1", "action 2"],
+  "notes": "Short farmer-friendly advice"
 }
 
-CRITICAL REQUIREMENTS:
-1. ALWAYS return valid JSON only
-2. Include specific dosages and safety periods
-3. Recommend organic first, then chemical alternatives
-4. Consider environmental and health impacts
-5. Factor in local product availability in India
-6. Provide cost-benefit analysis
-7. Include toxicity warnings for chemicals
-8. If confidence < 60%, mark as "Low" and suggest expert consultation
-9. Never diagnose conditions you cannot confirm
-10. Suggest consulting agricultural officer for severe cases"""
+Return ONLY the JSON. No explanation before or after."""
 
 
 # ============================================================================
@@ -485,22 +326,8 @@ async def analyze_crop(
         # Convert to base64 for API
         image_base64 = image_to_base64(image)
         
-        # Build analysis prompt
-        base_prompt = """Please analyze this crop image and provide:
-
-1. Crop type and identification
-2. Disease/pest/deficiency diagnosis with confidence level
-3. Severity assessment (Mild/Moderate/Severe)
-4. 5-7 ORGANIC treatment options (neem, sulfur, bioagents, etc.)
-5. 3-5 CHEMICAL treatment options with specific products and dosages
-6. Prevention strategies and cultural practices
-7. Applicable Government of India agriculture schemes
-8. Immediate action steps
-
-CRITICAL: Return ONLY valid JSON. No markdown, no other text."""
-        
-        if verbose:
-            base_prompt += "\n9. Detailed explanations for each treatment option"
+        # Build analysis prompt (system prompt has the full schema)
+        base_prompt = "Analyse this crop image and return the JSON diagnosis."
         
         # Call model
         logger.info("Calling Gemma 4 12B model for analysis")
