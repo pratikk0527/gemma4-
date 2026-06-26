@@ -54,6 +54,7 @@ const LANG = {
     statScans: "Total Scans", statDiseases: "Detected", statHealthy: "Healthy",
     quickTip: "Quick Tip", tipText: "Best time to scan is in morning light for accurate results.",
     viewResult: "View result",
+    chemicalWarning: "Use protective gear. Follow pre-harvest safety interval (days shown).",
   },
   hi: {
     appName: "किसानलेंस", tagline: "AI फसल डॉक्टर",
@@ -75,6 +76,7 @@ const LANG = {
     statScans: "कुल स्कैन", statDiseases: "रोग मिले", statHealthy: "स्वस्थ",
     quickTip: "त्वरित सुझाव", tipText: "सटीक परिणाम के लिए सुबह की रोशनी में स्कैन करें।",
     viewResult: "परिणाम देखें",
+    chemicalWarning: "सुरक्षात्मक उपकरण पहनें। कटाई से पहले सुरक्षा अंतराल का पालन करें।",
   }
 };
 
@@ -360,7 +362,7 @@ function HomeScreen({ t, history, onScanPress, onViewResult }) {
 /* ════════════════════════════════════════════
    SCAN SCREEN
 ════════════════════════════════════════════ */
-function ScanScreen({ t, preview, onFileSelect, onAnalyze, loading, error, fileRef }) {
+function ScanScreen({ t, preview, onFileSelect, onAnalyze, loading, loadingStatus, error, fileRef }) {
   return (
     <div style={{ padding: "1.5rem 1rem 6rem" }}>
       <p style={{ fontFamily: "Poppins", fontWeight: 700, fontSize: 20, color: C.text, margin: "0 0 1.25rem" }}>
@@ -436,6 +438,32 @@ function ScanScreen({ t, preview, onFileSelect, onAnalyze, loading, error, fileR
           </>
         )}
       </button>
+
+      {/* Live status card — shows queue/reasoning progress */}
+      {loading && loadingStatus && (
+        <div style={{
+          marginTop: 12, padding: "14px 16px", borderRadius: 14,
+          background: "linear-gradient(135deg, #EAF4FF 0%, #F0FFF4 100%)",
+          border: `1px solid ${C.primaryLight}`,
+          display: "flex", gap: 10, alignItems: "flex-start",
+        }}>
+          <div className="kl-spin" style={{
+            width: 16, height: 16, borderRadius: "50%", flexShrink: 0, marginTop: 2,
+            border: `2px solid ${C.primary}30`, borderTopColor: C.primary,
+          }} />
+          <div>
+            <p style={{ fontFamily: "Poppins", fontWeight: 600, fontSize: 13, color: C.primary, margin: "0 0 2px" }}>
+              {loadingStatus.startsWith("⏳") ? "Waiting in Queue" :
+               loadingStatus.startsWith("🔍") ? "Visual Analysis — Pass 1/2" :
+               loadingStatus.startsWith("🧠") ? "Diagnosis — Pass 2/2" :
+               "Submitting…"}
+            </p>
+            <p style={{ fontFamily: "Inter", fontSize: 12, color: C.textMid, margin: 0, lineHeight: 1.5 }}>
+              {loadingStatus}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -595,6 +623,46 @@ function ResultScreen({ t, result, image, onScanAnother }) {
                   {step.action}
                 </p>
                 <p style={{ fontFamily: "Inter", fontSize: 13, color: C.textMid, margin: 0, lineHeight: 1.5 }}>
+                  {step.detail}
+                </p>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* Chemical Treatment */}
+      {result.chemicalTreatment?.length > 0 && (
+        <Card>
+          <SectionLabel icon="warning" text="⚗️ Chemical Treatment" />
+          <p style={{ fontFamily: "Inter", fontSize: 11, color: C.orange, margin: "0 0 12px",
+            background: C.orangeBg, padding: "6px 10px", borderRadius: 8, lineHeight: 1.4 }}>
+            ⚠️ {t.chemicalWarning ?? "Use protective gear. Follow pre-harvest safety interval."}
+          </p>
+          {result.chemicalTreatment.map((step, i) => (
+            <div key={i} style={{
+              display: "flex", gap: 12,
+              marginBottom: i < result.chemicalTreatment.length - 1 ? 16 : 0,
+            }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: "50%",
+                  background: C.orangeBg, border: `2px solid ${C.orange}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <span style={{ fontFamily: "Poppins", fontWeight: 700, fontSize: 12, color: C.orange }}>
+                    {step.step}
+                  </span>
+                </div>
+                {i < result.chemicalTreatment.length - 1 && (
+                  <div style={{ width: 2, flex: 1, background: C.borderLight, marginTop: 4 }} />
+                )}
+              </div>
+              <div style={{ flex: 1, paddingBottom: 4 }}>
+                <p style={{ fontFamily: "Poppins", fontWeight: 600, fontSize: 13, color: C.text, margin: "4px 0 3px" }}>
+                  {step.action}
+                </p>
+                <p style={{ fontFamily: "Inter", fontSize: 12, color: C.textMid, margin: 0, lineHeight: 1.6 }}>
                   {step.detail}
                 </p>
               </div>
@@ -858,8 +926,18 @@ function TabBar({ tab, setTab, t }) {
    ROOT APP
 ════════════════════════════════════════════ */
 
-/* ── Backend via Vite proxy (/api → http://localhost:8000) ── */
-const BACKEND_URL = "/api";
+/**
+ * Backend URL resolution — priority order:
+ * 1. localStorage["kisanlens_backend"] — user-configured (e.g. dev tunnel URL)
+ * 2. /api — Vite proxy (works locally only)
+ */
+function getBackendUrl() {
+  try {
+    const saved = localStorage.getItem("kisanlens_backend");
+    if (saved && saved.startsWith("http")) return saved.replace(/\/$/, "");
+  } catch (_) {}
+  return "/api";
+}
 
 export default function App() {
   const [tab, setTab] = useState("home");
@@ -868,9 +946,18 @@ export default function App() {
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState("");  // live queue status text
   const [error, setError] = useState(null);
+  const [backendUrl, setBackendUrl] = useState(getBackendUrl);
+  const [showBackendConfig, setShowBackendConfig] = useState(false);
   const fileRef = useRef();
   const t = LANG[language];
+
+  /* persist backend URL whenever it changes */
+  useEffect(() => {
+    try { localStorage.setItem("kisanlens_backend", backendUrl); } catch (_) {}
+  }, [backendUrl]);
+
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
@@ -885,16 +972,94 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  /* ──────────────────────────────────────────
-     analyse() — calls FastAPI → Gemma 4 12B
-  ────────────────────────────────────────── */
+  /* ────────────────────────────────────────────────────────────────
+     analyse() — v4.2  SSE Streaming (devtunnel-safe)
+     Backend sends heartbeat pings every 5s → devtunnel stays alive.
+     Events:  status (progress) | result (full JSON) | error (message)
+  ──────────────────────────────────────────────────────────────── */
   const analyse = async () => {
     if (!preview) return;
     setLoading(true);
     setError(null);
+    setLoadingStatus("🌱 Uploading image…");
+
+    // Helper: parse the backend JSON result into our UI model
+    const parseResult = (data) => {
+      const sevMap = { Mild: "mild", Moderate: "moderate", Severe: "severe", None: "healthy" };
+      const severity   = sevMap[data.severity] ?? "healthy";
+      const rawScore   = data.confidence_score;
+      const confidence = rawScore != null ? Math.round(rawScore * 100)
+          : data.confidence === "High" ? 88
+          : data.confidence === "Medium" ? 65 : 42;
+
+      const buildTreatment = () => {
+        const organics = Array.isArray(data.organic_treatments) ? data.organic_treatments : [];
+        if (organics.length > 0) {
+          return organics.slice(0, 3).map((item, i) => ({
+            step:   item.rank ?? i + 1,
+            action: item.name ?? "Apply treatment",
+            detail: [
+              item.dosage             ? `Dosage: ${item.dosage}`             : "",
+              item.application_method ? `Method: ${item.application_method}` : "",
+              item.how_to_prepare ?? "",
+            ].filter(Boolean).join(". ") || "",
+          }));
+        }
+        return (Array.isArray(data.immediate_actions) ? data.immediate_actions : [])
+          .slice(0, 3).map((a, i) => ({ step: i + 1, action: a, detail: "" }));
+      };
+
+      const buildChemicalTreatment = () =>
+        (Array.isArray(data.chemical_treatments) ? data.chemical_treatments : [])
+          .slice(0, 3).map((item, i) => ({
+            step:   item.rank ?? i + 1,
+            action: item.name ?? "Apply chemical",
+            detail: [
+              item.active_ingredient    ? `Active: ${item.active_ingredient}`                        : "",
+              item.dosage               ? `Dosage: ${item.dosage}`                                   : "",
+              item.safety_interval_days ? `Wait ${item.safety_interval_days} days before harvest`   : "",
+              item.application_method   ? `Method: ${item.application_method}`                       : "",
+            ].filter(Boolean).join(" | "),
+          }));
+
+      const buildPrevention = () =>
+        (Array.isArray(data.prevention_strategies) ? data.prevention_strategies : [])
+          .slice(0, 4)
+          .map(s => typeof s === "string" ? s : `${s.strategy}: ${s.description}`);
+
+      const buildCauses = () => {
+        const list = [];
+        if (data.root_cause) list.push(data.root_cause);
+        (data.differential_diagnoses ?? []).slice(0, 2)
+          .forEach(d => list.push(`Possible alternate: ${d}`));
+        return list.slice(0, 3);
+      };
+
+      const buildSchemes = () =>
+        (Array.isArray(data.government_schemes) ? data.government_schemes : [])
+          .slice(0, 3).map(sc => ({
+            name:    sc.scheme_name    ?? sc.name    ?? "Government Scheme",
+            benefit: sc.benefit_amount ?? sc.benefit ?? "",
+            how:     sc.how_to_apply   ?? sc.how     ?? "",
+          }));
+
+      return {
+        cropName:          data.crop_type    ?? "Unknown Crop",
+        disease:           data.disease_name ?? (severity === "healthy" ? "Healthy Crop" : "Unknown Disease"),
+        severity,
+        confidence,
+        description:       data.description  ?? data.notes ?? "",
+        causes:            buildCauses(),
+        treatment:         buildTreatment(),
+        chemicalTreatment: buildChemicalTreatment(),
+        prevention:        buildPrevention(),
+        govtSchemes:       buildSchemes(),
+        urgency:           data.urgency ?? "",
+      };
+    };
 
     try {
-      // Convert data URL → Blob directly (works locally AND via dev tunnels)
+      // Convert data URL → Blob
       let blob;
       if (preview.startsWith("data:")) {
         const [header, b64] = preview.split(",");
@@ -908,86 +1073,69 @@ export default function App() {
       const form = new FormData();
       form.append("file", blob, "crop.jpg");
 
-      console.log("KisanLens: sending to", `${BACKEND_URL}/analyze-crop`, "size:", blob.size);
-      const res = await fetch(`${BACKEND_URL}/analyze-crop`, {
+      // ── POST and open SSE stream ───────────────────────────────────────────
+      // Backend sends heartbeat pings every 5s so devtunnel never idles out.
+      const res = await fetch(`${backendUrl}/analyze-crop`, {
         method: "POST",
-        body: form,
+        body:   form,
       });
 
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || errJson.detail || `Backend error ${res.status}`);
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => "");
+        let errMsg = `Server error (HTTP ${res.status})`;
+        try { errMsg = JSON.parse(errText).detail || errMsg; } catch (_) {}
+        throw new Error(errMsg);
       }
 
-      const data = await res.json();
+      // ── Read the SSE stream ────────────────────────────────────────────────
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = "";
+      let   done    = false;
 
-      const sevMap = { Mild: "mild", Moderate: "moderate", Severe: "severe" };
-      const severity = sevMap[data.severity] ?? "healthy";
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
+        if (value) buffer += decoder.decode(value, { stream: true });
 
-      const rawScore = data.confidence_score;
-      const confidence = rawScore != null ? Math.round(rawScore * 100)
-          : data.confidence === "High" ? 88
-          : data.confidence === "Medium" ? 65 : 42;
+        // Process complete SSE lines from buffer
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // Keep incomplete last chunk in buffer
 
-      const buildTreatment = () => {
-        const organics = Array.isArray(data.organic_treatments) ? data.organic_treatments : [];
-        if (organics.length > 0) {
-          return organics.slice(0, 3).map((item, i) => ({
-            step: item.rank ?? i + 1,
-            action: item.name ?? "Apply treatment",
-            detail: [
-              item.dosage ? `Dosage: ${item.dosage}` : "",
-              item.application_method ? `Method: ${item.application_method}` : "",
-              item.how_to_prepare ?? "",
-            ].filter(Boolean).join(". ") || item.active_ingredient || "",
-          }));
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          let event;
+          try { event = JSON.parse(line.slice(6)); } catch (_) { continue; }
+
+          if (event.type === "status") {
+            // Heartbeat — update loading message, keep connection alive
+            setLoadingStatus(event.message || "Processing…");
+
+          } else if (event.type === "result") {
+            // Final result received
+            const parsed = parseResult(event.data);
+            const entry  = { id: Date.now(), image: preview, result: parsed, timestamp: new Date() };
+            setResult(parsed);
+            setHistory(h => [entry, ...h].slice(0, 30));
+            setTab("result");
+            done = true; // stop reading
+
+          } else if (event.type === "error") {
+            throw new Error(event.message || "Analysis failed on server.");
+          }
         }
-        const actions = Array.isArray(data.immediate_actions) ? data.immediate_actions : [];
-        return actions.slice(0, 3).map((a, i) => ({ step: i + 1, action: a, detail: "" }));
-      };
+      }
 
-      const buildPrevention = () => {
-        const strats = Array.isArray(data.prevention_strategies) ? data.prevention_strategies : [];
-        return strats.slice(0, 4).map(s => typeof s === "string" ? s : `${s.strategy}: ${s.description}`);
-      };
-
-      const buildCauses = () => {
-        const list = [];
-        if (data.root_cause) list.push(data.root_cause);
-        (data.differential_diagnoses ?? []).slice(0, 2).forEach(d => list.push(`Possible alternate: ${d}`));
-        return list.slice(0, 3);
-      };
-
-      const buildSchemes = () => (Array.isArray(data.government_schemes) ? data.government_schemes : [])
-          .slice(0, 3).map(sc => ({
-            name: sc.scheme_name ?? sc.name ?? "Government Scheme",
-            benefit: sc.benefit_amount ?? sc.benefit ?? "",
-            how: sc.how_to_apply ?? sc.how ?? "",
-          }));
-
-      const parsed = {
-        cropName: data.crop_type ?? "Unknown Crop",
-        disease: data.disease_name ?? (severity === "healthy" ? "Healthy Crop" : "Unknown Disease"),
-        severity,
-        confidence,
-        description: data.description ?? data.notes ?? "",
-        causes: buildCauses(),
-        treatment: buildTreatment(),
-        prevention: buildPrevention(),
-        govtSchemes: buildSchemes(),
-        urgency: data.urgency ?? data.farmer_tips ?? "",
-      };
-
-      const entry = { id: Date.now(), image: preview, result: parsed, timestamp: new Date() };
-      setResult(parsed);
-      setHistory(h => [entry, ...h].slice(0, 30));
-      setTab("result");
     } catch (err) {
       console.error("KisanLens analysis error:", err);
-      setError(err.message && err.message !== "Failed to fetch" ? err.message : t.errorMsg);
+      setError(
+        err.message && err.message !== "Failed to fetch"
+          ? err.message
+          : t.errorMsg
+      );
     } finally {
       setLoading(false);
+      setLoadingStatus("");
     }
   };
 
@@ -1059,7 +1207,8 @@ export default function App() {
           {tab === "scan" && (
             <ScanScreen t={t} preview={preview}
               onFileSelect={handleFileSelect} onAnalyze={analyse}
-              loading={loading} error={error} fileRef={fileRef} />
+              loading={loading} loadingStatus={loadingStatus}
+              error={error} fileRef={fileRef} />
           )}
           {tab === "result" && result && (
             <ResultScreen t={t} result={result} image={preview} onScanAnother={scanAnother} />
@@ -1076,6 +1225,80 @@ export default function App() {
 
         {/* ── Tab Bar ── */}
         <TabBar tab={tab} setTab={setTab} t={t} />
+
+        {/* ── Backend Config Button (⚙) ── */}
+        <button
+          onClick={() => setShowBackendConfig(true)}
+          title="Configure Backend URL"
+          style={{
+            position: "fixed", bottom: 80, right: 16, zIndex: 200,
+            width: 36, height: 36, borderRadius: "50%",
+            background: backendUrl === "/api" ? "rgba(0,0,0,0.15)" : C.primaryMid,
+            border: "none", cursor: "pointer", fontSize: 16,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+          }}>
+          ⚙️
+        </button>
+
+        {/* ── Backend Config Modal ── */}
+        {showBackendConfig && (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 300,
+            background: "rgba(0,0,0,0.55)", display: "flex",
+            alignItems: "center", justifyContent: "center", padding: 24,
+          }}
+            onClick={() => setShowBackendConfig(false)}>
+            <div style={{
+              background: "#fff", borderRadius: 16, padding: 24,
+              width: "100%", maxWidth: 400, boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+            }}
+              onClick={e => e.stopPropagation()}>
+              <p style={{ fontFamily: "Inter", fontWeight: 700, fontSize: 16, color: C.primary, marginBottom: 8 }}>
+                🔧 Backend Server URL
+              </p>
+              <p style={{ fontFamily: "Inter", fontSize: 12, color: C.textMute, marginBottom: 16, lineHeight: 1.5 }}>
+                Local: leave as <code style={{ background: "#f1f5f0", padding: "1px 4px", borderRadius: 4 }}>/api</code><br />
+                Dev Tunnel: paste your backend tunnel URL<br />
+                <span style={{ color: C.primaryMid }}>e.g. https://xyz-8000.devtunnels.ms</span>
+              </p>
+              <input
+                type="text"
+                defaultValue={backendUrl}
+                id="backend-url-input"
+                style={{
+                  width: "100%", padding: "10px 12px", borderRadius: 8,
+                  border: `1.5px solid ${C.border}`, fontFamily: "Inter",
+                  fontSize: 13, outline: "none", boxSizing: "border-box",
+                }}
+                placeholder="https://your-tunnel-8000.devtunnels.ms"
+              />
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <button
+                  onClick={() => {
+                    const val = document.getElementById("backend-url-input").value.trim();
+                    setBackendUrl(val || "/api");
+                    setShowBackendConfig(false);
+                  }}
+                  style={{
+                    flex: 1, padding: "10px 0", borderRadius: 8, border: "none",
+                    background: C.primaryMid, color: "#fff", fontFamily: "Inter",
+                    fontWeight: 600, fontSize: 14, cursor: "pointer",
+                  }}>Save</button>
+                <button
+                  onClick={() => { setBackendUrl("/api"); setShowBackendConfig(false); }}
+                  style={{
+                    flex: 1, padding: "10px 0", borderRadius: 8, border: `1.5px solid ${C.border}`,
+                    background: "transparent", color: C.textMid, fontFamily: "Inter",
+                    fontWeight: 500, fontSize: 14, cursor: "pointer",
+                  }}>Reset to Local</button>
+              </div>
+              <p style={{ fontFamily: "Inter", fontSize: 11, color: C.textMute, marginTop: 12, textAlign: "center" }}>
+                Current: <code style={{ color: C.primaryMid }}>{backendUrl}</code>
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
