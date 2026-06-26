@@ -1,0 +1,227 @@
+version: '3.8'
+
+services:
+  # Ollama Service: Runs the Gemma 4 12B model
+  ollama:
+    image: ollama/ollama:latest
+    container_name: kisanlens-ollama
+    
+    # Port mapping
+    ports:
+      - "11434:11434"  # Ollama API port (internal: 11434)
+    
+    # Environment variables
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_MODELS=/root/.ollama/models
+    
+    # Persistent storage for models
+    volumes:
+      - ollama-data:/root/.ollama
+    
+    # Always restart if it crashes
+    restart: unless-stopped
+    
+    # Health check to ensure Ollama is ready
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Network
+    networks:
+      - kisanlens-network
+    
+    # Optional: For GPU support, uncomment below
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # FastAPI Backend Service
+  kisanlens-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kisanlens-api
+    
+    # Port mapping
+    ports:
+      - "8000:8000"  # API port (accessible at localhost:8000)
+    
+    # Environment variables
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434  # Internal Docker network reference
+      - MODEL_NAME=gemma:4-12b-q4_km
+      - MAX_TOKENS=1200
+      - TEMPERATURE=0.3
+      - IMAGE_MAX_SIZE=4000
+      - TIMEOUT_SECONDS=120
+      - PYTHONUNBUFFERED=1
+    
+    # Wait for Ollama to be healthy before starting
+    depends_on:
+      ollama:
+        condition: service_healthy
+    
+    # Always restart if it crashes
+    restart: unless-stopped
+    
+    # Health check for API
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Network
+    networks:
+      - kisanlens-network
+    
+    # Optional: Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Optional: Volume for logs
+    volumes:
+      - ./logs:/app/logs
+
+# Persistent volumes
+volumes:
+  ollama-data:
+    driver: local
+
+# Docker network for inter-container communication
+networks:
+  kisanlens-network:
+    driver: bridge
+
+# ==============================================================================
+# USAGE INSTRUCTIONS
+# ==============================================================================
+#
+# 1. STARTUP:
+#    docker-compose up -d
+#
+# 2. MONITOR OLLAMA MODEL DOWNLOAD (first run ~5-10 minutes):
+#    docker-compose logs -f ollama
+#
+# 3. CHECK STATUS:
+#    docker-compose ps
+#
+# 4. TEST API:
+#    curl http://localhost:8000/health
+#
+# 5. INTERACTIVE DOCS:
+#    Open: http://localhost:8000/docs
+#
+# 6. VIEW LOGS:
+#    docker-compose logs -f kisanlens-api
+#    docker-compose logs -f ollama
+#
+# 7. STOP SERVICES:
+#    docker-compose down
+#
+# 8. REMOVE EVERYTHING (including volumes):
+#    docker-compose down -v
+#
+# ==============================================================================
+# ENVIRONMENT VARIABLES YOU CAN CUSTOMIZE
+# ==============================================================================
+#
+# OLLAMA_BASE_URL: URL where Ollama is running (default: http://ollama:11434)
+#
+# MODEL_NAME: Which model to use
+#   - gemma:4-12b-q4_km (6.4 GB) ← DEFAULT, best balance
+#   - gemma:4-12b-q5_k_m (8.4 GB) ← Better quality
+#   - gemma:4-12b-q8_0 (12 GB) ← Near-original quality
+#
+# MAX_TOKENS: Maximum output length (default: 1200)
+#
+# TEMPERATURE: Model creativity (0.0=deterministic, 1.0=creative, default: 0.3)
+#
+# IMAGE_MAX_SIZE: Maximum image dimension in pixels (default: 4000)
+#
+# TIMEOUT_SECONDS: How long to wait for model inference (default: 120)
+#
+# ==============================================================================
+# GPU ACCELERATION (Optional - Makes it 3-10x faster)
+# ==============================================================================
+#
+# FOR NVIDIA GPU:
+# 1. Install NVIDIA Container Toolkit
+# 2. Uncomment the "deploy" section under ollama service
+# 3. Run: docker-compose up -d
+#
+# FOR AMD GPU (ROCm):
+# 1. Change ollama image to: ollama/ollama:rocm
+# 2. Install ROCM drivers on host
+# 3. Run normally
+#
+# FOR APPLE SILICON (Metal):
+# 1. Ollama on Mac automatically uses Metal
+# 2. Run normally - Metal is enabled by default
+#
+# ==============================================================================
+# TROUBLESHOOTING
+# ==============================================================================
+#
+# Connection refused (port 11434):
+#   $ docker-compose logs ollama
+#   $ docker-compose restart ollama
+#
+# API not responding:
+#   $ docker-compose logs kisanlens-api
+#   $ docker-compose restart kisanlens-api
+#
+# Out of memory:
+#   - Increase Docker memory allocation
+#   - Use Q4_K_M model (default, smaller)
+#   - Enable GPU acceleration
+#
+# Model not found:
+#   $ docker-compose exec ollama ollama pull gemma:4-12b-q4_km
+#
+# Disk space full:
+#   $ docker system prune
+#   $ docker volume prune
+#
+# ==============================================================================
+# PRODUCTION TIPS
+# ==============================================================================
+#
+# 1. HEALTH MONITORING:
+#    - Setup automated health checks
+#    - Monitor response times
+#    - Alert on failures
+#
+# 2. RESOURCE LIMITS:
+#    - Set memory limits in "deploy" section
+#    - Monitor CPU usage
+#    - Add resource requests
+#
+# 3. LOGGING:
+#    - Logs are already configured (json-file driver)
+#    - Rotate logs to prevent disk fill
+#    - Send logs to centralized system
+#
+# 4. UPDATES:
+#    - Regularly update base images
+#    - Test updates in staging first
+#    - Keep Python dependencies current
+#
+# 5. BACKUP:
+#    - Backup ollama-data volume regularly
+#    - Document model version used
+#    - Have rollback plan
+#
+# ==============================================================================
