@@ -5,13 +5,13 @@
 **KisanLens** is an AI-powered crop disease analysis and treatment recommendation system for Indian farmers using Google Gemma 4 12B quantized model running locally with Ollama and FastAPI.
 
 ### Key Features
-- ✅ Local inference (no cloud dependency, 100% private)
-- ✅ Multimodal (image + text understanding)
-- ✅ Bilingual support (English + local languages)
-- ✅ Organic + Chemical treatment recommendations
-- ✅ Government scheme integration
-- ✅ Farmer-friendly guidance
-- ✅ Cost-effective and open-source
+- Local inference (no cloud dependency, 100% private)
+- Multimodal (image + text understanding)
+- Bilingual support (English + local languages)
+- Organic + Chemical treatment recommendations
+- Government scheme integration
+- Farmer-friendly guidance
+- Cost-effective and open-source
 
 ### Tech Stack
 - **Model**: Google Gemma 4 12B (Quantized Q4_K_M, 6.4 GB)
@@ -26,7 +26,7 @@
 
 ### Core Backend Files
 
-1. **`main.py`** (⭐ MAIN FILE)
+1. **`main.py`** (MAIN FILE)
    - Complete FastAPI application
    - All API endpoints
    - Image handling and validation
@@ -290,7 +290,7 @@ var response = await request.send();
 
 ---
 
-## 🆘 Common Issues & Solutions
+## Common Issues & Solutions
 
 | Issue | Solution |
 |-------|----------|
@@ -323,7 +323,7 @@ var response = await request.send();
 
 ---
 
-## 🎓 Learning Path
+## Learning Path
 
 ### Week 1: Setup & Basics
 - [ ] Read setup guide (pages 1-20)
@@ -376,7 +376,7 @@ Before starting, ensure you have:
 
 ---
 
-## 💡 Pro Tips
+## Pro Tips
 
 1. **Use contextual analysis** for better results: 
    ```bash
@@ -396,7 +396,7 @@ Before starting, ensure you have:
 
 ---
 
-## 📅 Maintenance Schedule
+## Maintenance Schedule
 
 - **Daily**: Monitor health checks
 - **Weekly**: Review API usage and errors
@@ -406,7 +406,7 @@ Before starting, ensure you have:
 
 ---
 
-## 🎯 Success Metrics
+##  Success Metrics
 
 Track these to measure success:
 
@@ -419,7 +419,7 @@ Track these to measure success:
 
 ---
 
-## 📞 Support Channels
+##  Support Channels
 
 - GitHub Issues: Report bugs
 - Stack Overflow: Ask questions (tag: fastapi, ollama)
@@ -439,7 +439,7 @@ All code is provided as-is for educational and agricultural support purposes.
 
 ---
 
-## 🎉 Ready to Start?
+##  Ready to Start?
 
 1. **Copy all files to a directory**
 2. **Follow Quick Start (Option A or B)**
