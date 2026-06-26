@@ -894,14 +894,26 @@ export default function App() {
     setError(null);
 
     try {
-      const fetchedBlob = await fetch(preview).then(r => r.blob());
-      const form = new FormData();
-      form.append("file", fetchedBlob, "crop.jpg");
+      // Convert data URL → Blob directly (works locally AND via dev tunnels)
+      let blob;
+      if (preview.startsWith("data:")) {
+        const [header, b64] = preview.split(",");
+        const mime = header.match(/:(.*?);/)?.[1] || "image/jpeg";
+        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        blob = new Blob([bytes], { type: mime });
+      } else {
+        blob = await fetch(preview).then(r => r.blob());
+      }
 
+      const form = new FormData();
+      form.append("file", blob, "crop.jpg");
+
+      console.log("KisanLens: sending to", `${BACKEND_URL}/analyze-crop`, "size:", blob.size);
       const res = await fetch(`${BACKEND_URL}/analyze-crop`, {
         method: "POST",
         body: form,
       });
+
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
