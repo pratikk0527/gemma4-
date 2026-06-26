@@ -858,8 +858,8 @@ function TabBar({ tab, setTab, t }) {
    ROOT APP
 ════════════════════════════════════════════ */
 
-/* ── Gemma 4 12B backend (FastAPI + Ollama) ── */
-const BACKEND_URL = "http://localhost:8000";
+/* ── Backend via Vite proxy (/api → http://localhost:8000) ── */
+const BACKEND_URL = "/api";
 
 export default function App() {
   const [tab, setTab] = useState("home");
